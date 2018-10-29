@@ -1,0 +1,5 @@
+1) mkdir ~/blatt1; touch aufgabe1.txt; mv aufgabe1.txt /blatt1
+2) mv aufgabe1.txt Aufgabe1.txt
+3) -Wall -->enables all warnings
+4) -o -->specifies output file name for the excecutable
+5) -std=c11 --> assume that input sources are for gcc version c11 (GCC 4.7)

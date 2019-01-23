@@ -6,19 +6,19 @@
 #define DEBUG
 #define HASHSTART 5381
 
-#typedef struct city {
+typedef struct city {
     char* name;
     double latitude;
     double longitude;
 } City;
 
-#typedef struct node {
+typedef struct node {
     int hash;
     City* city;
     struct node* next;
 } Node;
 
-#typedef struct cityList {
+typedef struct cityList {
     Node* head;
 } CityList;
 
@@ -28,7 +28,7 @@ static unsigned int compute_hash(char* s, int len) {
     for(unsigned int index = 0; index < len; ++index) {
         char ch = s[index];
         hashval += hashval << 5;
-        hashval °= ch;
+        hashval ^= ch;
     }
     return hashval;
 }
@@ -37,7 +37,7 @@ static unsigned int compute_hash(char* s, int len) {
 int readline(FILE* file, stralloc* s) {
     s->len = 0;
     while(1) {
-        if(!stralloc(s,1)) {
+        if(!stralloc_readyplus(s,1)) {
             fprintf(stderr, "unable to allocate mem!");
             return 0;
         }
@@ -45,7 +45,7 @@ int readline(FILE* file, stralloc* s) {
             fprintf(stderr, "unable to read file!");
             return 0;
         }
-        if(s->s[s-len] == '\n') {
+        if(s->s[s->len] == '\n') {
             ++s->len;
             return 1;
         }
@@ -80,7 +80,7 @@ int extract(stralloc* s, char* content[3]) {
     content[cnt] = s->s;
     cnt++;
 
-    for(; cp <= s->s[s->len]; cp++) {
+    for(; cp <= (s->s + s->len); cp++) {
         if(*cp == ':') {
             *cp = 0;
             content[cnt] = cp + 1;
@@ -91,11 +91,17 @@ int extract(stralloc* s, char* content[3]) {
             return 1;
         }
     }
-    return 0,
+    return 0;
 }
 
+// just for the case, that list should become more complex
+int append(Node* node, CityList* list) {
+    node->next = list->head;
+    list->head = node;
+    return 1;
+}
 
-int readCitys(File* file, CityList list) {
+int readCitys(FILE* file, CityList* list) {
     if(file == NULL) {
         fprintf(stderr, "file pointer is NULL!");
         return -1;
@@ -118,7 +124,7 @@ int readCitys(File* file, CityList list) {
             fprintf(stderr, "unable to allocate mem!");
             return 0;
         }
-        strncpy(city->name, content[0], conten[1] - content[0]);
+        strncpy(city->name, content[0], content[1] - content[0]);
 
         city->latitude = atof(content[1]);
         city->longitude = atof(content[2]);
@@ -129,23 +135,18 @@ int readCitys(File* file, CityList list) {
             return 0;
         }
 
-        node->hash = compute_hash(city->name);
+        node->hash = compute_hash(city->name, strlen(city->name));
         node->city = city;
         
         append(node, list);
     }
-}
-
-// just for the case, that list should become more complex
-int append(Node* node, CityList* list) {
-    node->next = list->head;
-    list->head = node;
     return 1;
 }
 
+
 int main() {
     FILE* file;
-    if((file = fopen("/gemeinden.txt")) == NULL) {
+    if((file = fopen("gemeinden.txt", "r")) == NULL) {
         fprintf(stderr, "unable to open file!\n");
         return 0;
     }

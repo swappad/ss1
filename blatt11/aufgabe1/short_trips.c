@@ -8,6 +8,7 @@
 
 #define T_SIZE 255
 
+
 typedef struct city {
     stralloc name;
     double latitude; // Breitengrad
@@ -16,7 +17,7 @@ typedef struct city {
 
 typedef struct node {
     unsigned int hash;
-    City* city;
+    City city;
     struct node* next;
 } Node;
 
@@ -35,8 +36,8 @@ static unsigned int compute_hash(stralloc* s, int len, int t_size) {
     return ((unsigned int) hashval) % t_size;
 }
 
-int printCity(City* city) {
-    printf("%s B: %f L: %f \n", city->name.s, city->latitude, city->longitude);
+int printCity(City city) {
+    printf("%s B: %f L: %f \n", city.name.s, city.latitude, city.longitude);
     return 1;
 }
 
@@ -56,7 +57,6 @@ int readline(FILE* file, stralloc* s) {
             return 0;
         }
         if(s->s[s->len] == '\n') {
-            ++s->len;
 #ifdef DEBUG
             printf("line read!\n");
 #endif
@@ -134,32 +134,29 @@ int readCitys(FILE* file, HashTable* htab) {
             return 0;
         }
 
-        City* city;
-        if((city = calloc(1,sizeof(City))) == NULL) {
-            fprintf(stderr, "unable to allocate mem for new City!\n");
-            return 0;
-        }
-        
-#ifdef DEBUG
-        printf("%ld \n", strlen(content[0]));
-#endif
-        stralloc_copys(&(city->name), content[0]);
-        stralloc_0(&(city->name));
-
-        city->latitude = atof(content[1]);
-        city->longitude = atof(content[2]);
-
-        printCity(city);
         Node* node;
         if((node = calloc(1 ,sizeof(Node))) == NULL) {
             fprintf(stderr, "unable to allocate mem for ew Node!\n");
             return 0;
         }
 
-        node->hash = compute_hash(&(city->name), city->name.len, T_SIZE);
+        City city = {0};
+
+        
+#ifdef DEBUG
+        printf("%ld \n", strlen(content[0]));
+#endif
+        stralloc_copys(&(city.name), content[0]);
+        stralloc_0(&(city.name));
+
+        city.latitude = atof(content[1]);
+        city.longitude = atof(content[2]);
+
+        printCity(city);
+        node->hash = compute_hash(&(city.name), city.name.len, T_SIZE);
         node->city = city;
 #ifdef DEBUG
-        printf("h: %d C: %p\n", node->hash, node->city);
+        printf("h: %d C: %p\n", node->hash, &node->city);
 #endif
         
         insert(node, htab);
@@ -172,7 +169,7 @@ int printList(Node* head) {
     printf("Head: %p\n", head->next);
     while(node != NULL) {
         printf("Node %p\n", node);
-        printf("%s B: %f L: %f \n", node->city->name.s, node->city->latitude, node->city->longitude);
+        printf("%s B: %f L: %f \n", node->city.name.s, node->city.latitude, node->city.longitude);
         node = node->next;
     }
     return 1;
@@ -193,7 +190,7 @@ int main() {
         return 0;
     }
     HashTable* htab;
-    if((htab = calloc(1, sizeof(htab))) == NULL) {
+    if((htab = calloc(1, sizeof(HashTable))) == NULL) {
         fprintf(stderr, "unable to allocate mem for hash table!\n");
     }
     readCitys(file, htab);

@@ -8,8 +8,8 @@
 
 typedef struct city {
     char* name;
-    double latitude;
-    double longitude;
+    double latitude; // Breitengrad
+    double longitude; // Längengrad
 } City;
 
 typedef struct node {
@@ -33,23 +33,34 @@ static unsigned int compute_hash(char* s, int len) {
     return hashval;
 }
 
+int printCity(City* city) {
+    printf("%s B: %f L: %f \n", city->name, city->latitude, city->longitude);
+    return 1;
+}
+
 
 int readline(FILE* file, stralloc* s) {
+
+#ifdef DEBUG
+    printf("reading line...\n");
+#endif
     s->len = 0;
-    while(1) {
+    for(;;) {
         if(!stralloc_readyplus(s,1)) {
-            fprintf(stderr, "unable to allocate mem!");
+            fprintf(stderr, "unable to allocate mem for new char!\n");
             return 0;
         }
-        if(fread(s->s +s->len, sizeof(char), 1, file) != 1) {
-            fprintf(stderr, "unable to read file!");
+        if(fread(s->s + s->len, sizeof(char), 1, file) <= 0) {
             return 0;
         }
         if(s->s[s->len] == '\n') {
             ++s->len;
+#ifdef DEBUG
+            printf("line read!\n");
+#endif
             return 1;
         }
-        return 0;
+        ++s->len;
     }
 }
 
@@ -72,7 +83,7 @@ int readline(FILE* file, stralloc* s) {
  */
 int extract(stralloc* s, char* content[3]) {
     if(s->s == NULL) {
-        fprintf(stderr, "parameter NULL!");
+        fprintf(stderr, "parameter NULL!\n");
         return 0;
     }
     char* cp = s->s;
@@ -103,7 +114,7 @@ int append(Node* node, CityList* list) {
 
 int readCitys(FILE* file, CityList* list) {
     if(file == NULL) {
-        fprintf(stderr, "file pointer is NULL!");
+        fprintf(stderr, "file pointer is NULL!\n");
         return -1;
     }
     stralloc s = {0};
@@ -116,22 +127,26 @@ int readCitys(FILE* file, CityList* list) {
 
         City* city;
         if((city = malloc(sizeof(City))) == NULL) {
-            fprintf(stderr, "unable to allocate mem for new City!");
+            fprintf(stderr, "unable to allocate mem for new City!\n");
             return 0;
         }
         
-        if((city->name = malloc((content[1]-content[0]) * sizeof(char)) ) == NULL) {
-            fprintf(stderr, "unable to allocate mem!");
+#ifdef DEBUG
+        printf("%ld \n", strlen(content[0]));
+#endif
+        if((city->name = malloc(strlen(content[0]) * sizeof(char)) ) == NULL) {
+            fprintf(stderr, "unable to allocate mem for city name!\n");
             return 0;
         }
-        strncpy(city->name, content[0], content[1] - content[0]);
+        strcpy(city->name, content[0]);
 
         city->latitude = atof(content[1]);
         city->longitude = atof(content[2]);
 
+        printCity(city);
         Node* node;
         if((node = malloc(sizeof(Node))) == NULL) {
-            fprintf(stderr, "unable to allocate mem for ew Node!");
+            fprintf(stderr, "unable to allocate mem for ew Node!\n");
             return 0;
         }
 
@@ -143,14 +158,24 @@ int readCitys(FILE* file, CityList* list) {
     return 1;
 }
 
+int printList(CityList* list) {
+    Node* node = list->head;
+    while(node != NULL) {
+        printf("%s B: %f L: %f \n", node->city->name, node->city->latitude, node->city->longitude);
+        node = node->next;
+    }
+    return 1;
+}
+        
 
 int main() {
     FILE* file;
-    if((file = fopen("gemeinden.txt", "r")) == NULL) {
+    if((file = fopen("ss1/blatt11/aufgabe1/gemeinden.txt", "r")) == NULL) {
         fprintf(stderr, "unable to open file!\n");
         return 0;
     }
     CityList citylist = {0};
     readCitys(file, &citylist);
+    printList(&citylist);
     return 1;
 }

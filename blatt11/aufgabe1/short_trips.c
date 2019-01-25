@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
-#define DEBUG
+//#define DEBUG
 #define HASHSTART 5381
 
 #define T_SIZE 255
+#define PI 3.14159265358979323846
 
 
 typedef struct city {
@@ -39,6 +41,26 @@ static unsigned int compute_hash(stralloc* s, int len, int t_size) {
 int printCity(City city) {
     printf("%s B: %f L: %f \n", city.name.s, city.latitude, city.longitude);
     return 1;
+}
+
+
+double deg2rad(double deg) {
+    return deg * (PI / 180);
+}
+
+// Haversine formula; Ideas for Implementation from stackoverflow user Chuck from 26 Aug 2008
+double getDistance(City a, City b) {
+    double R = 6317;
+    double dLat = deg2rad(a.latitude - b.latitude);
+    double dLon = deg2rad(a.longitude - b.longitude);
+    double w = 
+        sin(dLat/2) * sin(dLat/2) +
+        cos(deg2rad(a.latitude)) * cos(deg2rad(b.latitude)) * 
+        sin(dLon/2) * sin(dLon/2)
+        ;
+    double c = 2 * atan2(sqrt(w), sqrt(1-w));
+    double d = R * c;
+    return d;
 }
 
 
@@ -86,8 +108,9 @@ int readline(FILE* file, stralloc* s) {
 int extract(stralloc* s, char* content[3]) {
 #ifdef DEBUG
     printf("extracting\n");
+    printf("%ld\n",s->len);
 #endif
-    if(s->s == NULL) {
+    if(s->s == NULL || s->len == 0) {
         fprintf(stderr, "parameter NULL!\n");
         return 0;
     }
@@ -99,8 +122,10 @@ int extract(stralloc* s, char* content[3]) {
     for(; cp <= (s->s + s->len); cp++) {
         if(*cp == ':') {
             *cp = 0;
-            content[cnt] = cp + 1;
-            cnt++;
+            if(cnt < 3){
+                content[cnt] = cp + 1;
+                cnt++;
+            }
         }
         if(*cp == '\n') {
             *cp = 0;
@@ -152,7 +177,6 @@ int readCitys(FILE* file, HashTable* htab) {
         city.latitude = atof(content[1]);
         city.longitude = atof(content[2]);
 
-        printCity(city);
         node->hash = compute_hash(&(city.name), city.name.len, T_SIZE);
         node->city = city;
 #ifdef DEBUG
@@ -164,11 +188,23 @@ int readCitys(FILE* file, HashTable* htab) {
     return 1;
 }
 
+City* findCity(stralloc s, HashTable* htab) {
+
+    int hash = compute_hash(&s, s.len, T_SIZE);
+    Node* node = htab->table[hash];
+    while(node != NULL) {
+        if(!stralloc_diff(&(node->city.name), &s)) {
+            return &(node->city);
+        }
+        node = node->next;
+    }
+    return NULL;
+}
+                
+
 int printList(Node* head) {
     Node* node = head;
-    printf("Head: %p\n", head->next);
     while(node != NULL) {
-        printf("Node %p\n", node);
         printf("%s B: %f L: %f \n", node->city.name.s, node->city.latitude, node->city.longitude);
         node = node->next;
     }
@@ -183,9 +219,18 @@ int printTable(HashTable* htab) {
 }
 
 
-int main() {
+
+int main(int argc, char** argv) {
+    if(argc != 3) {
+        fprintf(stderr, "1invalid arguments!\n");
+        exit(0);
+    }
+
+    
+
+
     FILE* file;
-    if((file = fopen("ss1/blatt11/aufgabe1/gemeinden.txt", "r")) == NULL) {
+    if((file = fopen("gemeinden.txt", "r")) == NULL) {
         fprintf(stderr, "unable to open file!\n");
         return 0;
     }
@@ -194,6 +239,67 @@ int main() {
         fprintf(stderr, "unable to allocate mem for hash table!\n");
     }
     readCitys(file, htab);
-    printTable(htab);
+    //printTable(htab);
+
+    stralloc sa,sb = {0};
+    stralloc_copys(&sa, argv[1]);
+    stralloc_0(&sa);
+    stralloc_copys(&sb, argv[2]);
+    stralloc_0(&sb);
+
+    City* a = findCity(sa, htab);
+    City* b = findCity(sb, htab);
+
+    if(a == NULL || b == NULL) {
+        fprintf(stderr, "2invalid arguments!\n");
+        exit(0);
+    }
+
+    double dtotal = getDistance(*a, *b);
+    double dtravels = 0;
+    printf("Distance between cities: %f\n", dtotal);
+
+    // Gameplay
+    City x = *a;
+    while(1) {
+        printf("you are currently located in %s.\n Next town?", x.name.s);
+        stralloc sx = {0};
+        readline(stdin, &sx);
+        char* c[3];
+        if(!extract(&sx, c)) {
+            fprintf(stderr, "invalid argument!\n");
+            exit(0);
+        }
+        
+        if(c[0] == NULL) {
+            fprintf(stderr, "invalid argument!\n");
+            exit(0);
+        }
+
+
+        stralloc_copys(&sx, c[0]);
+        stralloc_0(&sx);
+
+        City* xNext;
+        if((xNext = findCity(sx, htab)) == NULL) {
+            fprintf(stderr, "invalid argument!\n");
+            exit(0);
+        }
+
+        
+
+        double dnext = getDistance(x, *xNext);
+        dtravels += dnext;
+        if(!stralloc_diff(&(xNext->name), &(b->name))) {
+            printf("Welcome to %s!\n Your travel distance was %f\n", b->name.s, dtravels);
+            exit(1);
+        }
+        printf("Distance from %s to %s was %f\n", x.name.s, xNext->name.s, dnext);
+
+        x = *xNext;
+
+    }
+
+
     return 1;
 }

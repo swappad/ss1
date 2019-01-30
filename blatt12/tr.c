@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <string.h>
 
+//#define DEBUG
+
 #define PERROR(msg) (write(2, msg, strlen(msg)))
 
 int main(int argc, char* argv[]) {
@@ -16,21 +18,56 @@ int main(int argc, char* argv[]) {
     stralloc irep = {0};
     stralloc orep = {0};
     stralloc infile = {0};
+    for(int p = 0; p < strlen(argv[1]); p++) {
+        if(argv[1][p] == '-') {
+            int range = argv[1][p+1] - argv[1][p-1];
+            for(char ch = (char) (argv[1][p-1] + 1); ch < argv[1][p-1] + range; ch++) {
+                if(!stralloc_append(&irep, &ch)) {
+                    PERROR("wrong arguments!");
+                    exit(0);
+                }
+            }
+        } else {
+            if(!stralloc_append(&irep, &(argv[1][p]))) {
+                PERROR("wrong arguments!");
+                exit(0);
+            }
+        }
+  }
+    for(int p = 0; p < strlen(argv[2]); p++) {
+        if(argv[2][p] == '-') {
+            int range = argv[2][p+1] - argv[2][p-1];
+            for(char ch = (char) (argv[2][p-1] + 1); ch < argv[2][p-1] + range; ch++) {
+                if(!stralloc_append(&orep, &ch)) {
+                    PERROR("wrong arguments!");
+                    exit(0);
+                }
+            }
+        } else {
+            if(!stralloc_append(&orep, &(argv[2][p]))) {
+                PERROR("wrong arguments!");
+                exit(0);
+            }
+        }
+    }
+#ifdef DEBUG
+    write(1, irep.s, irep.len);
+    write(1, "\n", 1);
+    write(1, orep.s, orep.len);
+    write(1, "\n", 1);
+#endif
 
-    if(!(
-            stralloc_copys(&irep, argv[1]) && 
-            stralloc_copys(&orep, argv[2]) && 
-            stralloc_copys(&infile, argv[3]))) {
+
+    if(!stralloc_copys(&infile, argv[3])) {
         PERROR("wrong arguments!");
         exit(0);
     }
-
     if(irep.len != orep.len) {
         PERROR("arguments must have same length");
         exit(0);
     }
 
-    int infd = open("infile", O_RDWR);
+    int infd = open(infile.s, O_RDWR);
     if(infd < 0) {
         PERROR("wrong path!");
         exit(0);
@@ -46,10 +83,11 @@ int main(int argc, char* argv[]) {
         PERROR("file error!");
         exit(0);
     }
-    for(; buf < buf + nbytes; buf++) {
+    for(int cnt = 0; cnt < nbytes; cnt++) {
         for(int index = 0; index < irep.len; index++) {
-            if(*buf == irep.s[index]) {
-                *buf = orep.s[index];
+            if(buf[cnt] == irep.s[index]) {
+                buf[cnt] = orep.s[index];
+                break;
             }
         }
     }
@@ -57,6 +95,6 @@ int main(int argc, char* argv[]) {
     munmap((caddr_t) buf, nbytes);
     close(infd);
 
-    return 1;
+    exit(1);
 
 }

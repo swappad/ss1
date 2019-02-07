@@ -8,6 +8,7 @@
 #include <string.h>
 // #include <stdio.h>
 
+
 #define ERROR(msg) write(2, msg, strlen(msg))
 #define UIMSG(msg) write(1, msg, strlen(msg))
 #define TRIES 100
@@ -62,6 +63,7 @@ int main(int argc, char* argv[]) {
     
     stralloc_catm(&filename, "/current_bid\0");
     stralloc_catm(&tmpfilename, "/current_bid.tmp\0");
+    int newline = 0;
 
     
     // checking if file of filename already exists and is REGular file
@@ -91,16 +93,29 @@ int main(int argc, char* argv[]) {
 
 
         size_t nbytes = 0;
-        if((nbytes = read(file, buf, RDBUF_SIZE)) < 0) {
-            ERROR("unable to read from file!\n");
-            exit(1);
+        stralloc_copys(&oldbid, "");
+        newline = 0;
+        while(!newline && (nbytes = read(file, buf, RDBUF_SIZE)) > 0) {
+            if(nbytes < 0) {
+                ERROR("unable to read from file!\n");
+                exit(1);
+            }
+            for(int i = 0; i < nbytes; i++) {
+                if(buf[i] == '\n') {
+                    nbytes = i;
+                    newline = 1;
+                    break;
+                }
+            }
+            if(!stralloc_catb(&oldbid, buf, nbytes)) {
+                ERROR("mem error!\n");
+                exit(1);
+            }
+
         }
         close(file);
         file = -1;
-        if(!stralloc_copyb(&oldbid, buf, nbytes)) {
-            ERROR("mem error!\n");
-            exit(1);
-        }
+
 
         // UI
         UIMSG("highest bid is: ");
@@ -109,19 +124,26 @@ int main(int argc, char* argv[]) {
         UIMSG("Your bid:\n");
 
         // read input from cmd line
-        if((nbytes = read(0, buf, RDBUF_SIZE)) < 0) {
-            ERROR("unable to read from stdout!\n");
-            exit(1);
-        }
-        // refreshing by entering ENTER
-        if(buf[0] == '\n') continue;
+        stralloc_copys(&userbid, "");
+        
+        while(!newline && (nbytes = read(0, buf, RDBUF_SIZE)) > 0) {
 
-        // processing bid
-        if(!stralloc_copyb(&userbid, buf, nbytes)) {
-            ERROR("mem error!\n");
-            exit(1);
+            if(nbytes < 0) {
+                ERROR("unable to read from stdout!\n");
+                exit(1);
+            }
+            for(int i = 0; i < nbytes; i++) {
+                if(buf[i] == '\n') {
+                    nbytes = i;
+                    newline = 1;
+                    break;
+                }
+            }
+            if(!stralloc_catb(&userbid, buf, nbytes)) {
+                ERROR("mem error!\n");
+                exit(1);
+            }
         }
-
 
         // try to get permission to bid
         int tmpfile;
@@ -148,19 +170,29 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
         // read from file
-        if((nbytes = read(file, buf, RDBUF_SIZE)) < 0) {
-            unlink(tmpfilename.s);
-            ERROR("unable to read from file!\n");
-            exit(1);
+        stralloc_copys(&oldbid, "");
+        newline = 0;
+        while((nbytes = read(file, buf, RDBUF_SIZE)) > 0) {
+            if(nbytes < 0) {
+                unlink(tmpfilename.s);
+                ERROR("unable to read from file!\n");
+                exit(1);
+            }
+            for(int i = 0; i < nbytes; i++) {
+                if(buf[i] == '\n') {
+                    nbytes = i;
+                    newline = 1;
+                    break;
+                }
+            }
+            if(!stralloc_catb(&oldbid, buf, nbytes)) {
+                unlink(tmpfilename.s);
+                ERROR("mem error!\n");
+                exit(1);
+            }
         }
-        //buf[nbytes] = '\0';
         close(file);
         file = -1;
-        if(!stralloc_copyb(&oldbid, buf, nbytes)) {
-            unlink(tmpfilename.s);
-            ERROR("mem error!\n");
-            exit(1);
-        }
 
         if(compare(&oldbid, &userbid)) {
             stralloc_cats(&userbid, " by \0");
